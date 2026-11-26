@@ -69,7 +69,7 @@ git switch -c opt/baseline-bench
    docker compose -f docker-compose.bench.yml up --build   # verify flags in README first
    ```
 2. If no harness exists, build a minimal one:
-   - Fixed lab target (e.g. a local vulnerable app: DVWA/Juice Shop container)
+   - Fixed in-scope target: one designated asset from an authorized bug-bounty/pentest program (written authorization; within program scope + rate rules). Pin it by name in the baseline doc.
    - 1 fixed task run with fixed LLM profile → record: wall time, tokens per finding,
      tokens per intent, DB row counts, UI task-page load time
 3. Save results to `docs/benchmarks/baseline-<date>.md`. Commit + PR.
@@ -158,7 +158,7 @@ Post-foothold network/AD recon. **Biggest gap in the framework** — nothing cov
 ### Suggested order
 B1 → B2 (completeness pair) → B3 → B4 → B5 → B6.
 
-Each PR includes: the skill, a `docs/` example run against a lab target, and (when relevant)
+Each PR includes: the skill, a `docs/` example run against an authorized in-scope target (or a local replica of one), and (when relevant)
 entries for the drostbench-style flag corpus so skill behavior is testable.
 
 ---
