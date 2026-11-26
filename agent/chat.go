@@ -11,6 +11,7 @@ import (
 	"github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/artex/guard"
 	"github.com/Autumn-27/artex/intercept"
+	"github.com/Autumn-27/artex/llmrec"
 	"github.com/Autumn-27/norma/agentcore"
 	"github.com/Autumn-27/norma/llm"
 	"github.com/Autumn-27/norma/permission"
@@ -213,6 +214,18 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 	// with or without persistence; Norma only puts it on ctx when it writes a transcript.
 	opts.SessionID = sessionID
 	ctx = transcript.WithSessionID(ctx, opts.SessionID)
+
+	// Usage attribution: parseSession only attributes "exp<N>-..." task session
+	// ids, so chat-family ids (chat page sessions, "conv-<id>" conversation and
+	// retester runs) would be metered with a NULL task and worker. Label the
+	// lane explicitly and carry the session id as the task label so spend stays
+	// queryable per thread.
+	worker := "chat"
+	if agentKey != "" {
+		worker = "conv:" + agentKey
+	}
+	ctx = llmrec.WithWorker(ctx, worker)
+	ctx = llmrec.WithTaskID(ctx, sessionID)
 	if c.tx != nil { // persist raw human↔AI conversation; one accumulating file per thread
 		opts.Transcript = c.tx
 	}

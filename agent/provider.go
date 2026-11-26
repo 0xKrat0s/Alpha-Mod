@@ -679,6 +679,7 @@ func TestConnection(ctx context.Context, c Config) (time.Duration, string, error
 	// conversation; endpoints without a SessionHeaderKey don't read it, no side
 	// effects.
 	ctx = transcript.WithSessionID(ctx, "conntest-"+transcript.NewSessionID())
+	ctx = llmrec.WithWorker(ctx, "conntest")
 	start := time.Now()
 	// MaxTokens must be generous: reasoning models (e.g. deepseek-v4-pro) emit a long
 	// stretch of thinking before answering (measured ~2900 tokens even for a one-word
