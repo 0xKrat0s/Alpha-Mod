@@ -177,13 +177,28 @@ func TestPlannerInputEnvelopeSplit(t *testing.T) {
 func TestWorkerOverviewEnvelopeSplit(t *testing.T) {
 	env := newDataEnvelope()
 	out := renderWorkerGraphOverview(envelopeOverview(), env)
+	// opt/context-slim: the worker view drops open_intents and cold_digests
+	// (frontier totals + recent_facts/finding_list carry the anti-repeat signal;
+	// the full history stays reachable via graph_overview / list_facts).
+	workerDerived := make([]string, 0, len(overviewDerivedFields))
 	for _, field := range overviewDerivedFields {
+		if field == "cold_digests" {
+			continue
+		}
+		workerDerived = append(workerDerived, field)
+	}
+	for _, field := range workerDerived {
 		if !strings.Contains(out, dataOpenPrefix+env.nonce+" field="+field+"]]") {
 			t.Errorf("no frame for derived field %s", field)
 		}
 	}
+	for _, gone := range []string{"open_intents", "cold_digests"} {
+		if strings.Contains(out, `"field=`+gone+`"`) || strings.Contains(out, `"`+gone+`"`) {
+			t.Errorf("slimmed worker overview still contains %q", gone)
+		}
+	}
 	inside, outside := splitFrames(t, out, env.nonce)
-	for _, derived := range []string{envAgentHint, envFact, envFindingSum, envDigest, envRelated, "probe the login"} {
+	for _, derived := range []string{envAgentHint, envFact, envFindingSum, envRelated} {
 		if !strings.Contains(inside, derived) || strings.Contains(outside, derived) {
 			t.Errorf("derived text %q is not only inside the frames", derived)
 		}
