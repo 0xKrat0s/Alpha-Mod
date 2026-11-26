@@ -63,6 +63,7 @@ services:
       ARTEX_UNTRUSTED_BOUNDARY: ${ARTEX_UNTRUSTED_BOUNDARY:-}
       ARTEX_UPDATE_CHECK: ${ARTEX_UPDATE_CHECK:-}
       # Noise profile for target requests: off (default) | quiet | balanced | aggressive.
+      ARTEX_TOOL_RAG: ${ARTEX_TOOL_RAG:-1}
       ARTEX_NOISE_PROFILE: ${ARTEX_NOISE_PROFILE:-}
       ARTEX_TARGET_USER_AGENT: ${ARTEX_TARGET_USER_AGENT:-}
       # Hierarchical run budgets: unset or 0 = unlimited (no change). See README.

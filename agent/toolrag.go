@@ -17,10 +17,10 @@ import (
 // Tool RAG: a lexical PROJECTION of an agent's already-bound tool list. It runs in
 // AugmentTools after ToolResolve (binding + enabled filters), so it only ever
 // removes tools from that list: it cannot add an unbound or disabled tool, never
-// rewrites a description or schema, and never reads the database. Off by default.
+// rewrites a description or schema, and never reads the database. On by default; ARTEX_TOOL_RAG=0 disables.
 
 const (
-	toolRAGEnv        = "ARTEX_TOOL_RAG"      // "1"/"true"/"on"/"yes" enables; anything else (incl. unset) = off
+	toolRAGEnv        = "ARTEX_TOOL_RAG"      // "0"/"false"/"off"/"no" disables; unset/empty or anything else = on
 	toolRAGTopKEnv    = "ARTEX_TOOL_RAG_TOPK" // non-core tools kept; default toolRAGDefaultK
 	toolRAGDefaultK   = 12
 	toolRAGMinCatalog = 20 // smaller catalogs are passed through whole
@@ -172,8 +172,7 @@ func toolRAGKeep(deferred []string) map[string]bool {
 // applyToolRAG is the AugmentTools hook. Off unless ARTEX_TOOL_RAG is enabled.
 func applyToolRAG(ctx context.Context, agentKey string, tools []actool.CoreTool, deferred []string, score ToolScorer) []actool.CoreTool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv(toolRAGEnv))) {
-	case "1", "true", "on", "yes":
-	default:
+	case "0", "false", "off", "no":
 		return tools
 	}
 	k, kerr := strconv.Atoi(strings.TrimSpace(os.Getenv(toolRAGTopKEnv)))
