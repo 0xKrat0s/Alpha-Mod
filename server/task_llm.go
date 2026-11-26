@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"iter"
 	"log"
+	"math/rand/v2"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -377,11 +378,12 @@ func completeTaskLLM(ctx context.Context, taskID string, req llm.CompletionReque
 			if hooks.recordHealth != nil {
 				hooks.recordHealth(ctx, selection.healthProfileID, false, false, callErr)
 			}
+			attempts := retryAttemptsFor(retries, callErr)
 			if callErr != nil && ctx.Err() == nil &&
-				attempt < retries && isRetryableStreamError(callErr) {
-				backoff := backoffOf(attempt)
+				attempt < attempts && isRetryableStreamError(callErr) {
+				backoff := backoffFor(callErr, attempt, backoffOf)
 				log.Printf("[task-llm] task %s non-streaming call failed, retrying on the same provider after %v (%d/%d): %v",
-					taskID, backoff, attempt+1, retries, callErr)
+					taskID, backoff, attempt+1, attempts, callErr)
 				if sleepCtx(ctx, backoff) {
 					return llm.Message{}, "", total, ctx.Err() // cancelled during backoff → stop
 				}
@@ -513,11 +515,12 @@ func streamTaskLLM(ctx context.Context, taskID string, req llm.CompletionRequest
 					}
 					pending = nil
 				}
+				attempts := retryAttemptsFor(retries, streamErr)
 				if streamErr != nil && !committed && ctx.Err() == nil &&
-					attempt < retries && isRetryableStreamError(streamErr) {
-					backoff := backoffOf(attempt)
+					attempt < attempts && isRetryableStreamError(streamErr) {
+					backoff := backoffFor(streamErr, attempt, backoffOf)
 					log.Printf("[task-llm] task %s pre-commit stream failure, retrying on the same provider after %v (%d/%d): %v",
-						taskID, backoff, attempt+1, retries, streamErr)
+						taskID, backoff, attempt+1, attempts, streamErr)
 					if sleepCtx(ctx, backoff) {
 						yield(llm.StreamEvent{}, ctx.Err()) // cancelled during backoff → stop
 						return
@@ -644,6 +647,53 @@ func sameProviderRetryPolicy(r agent.RetryConfig) (retries int, backoff func(int
 		backoff = func(int) time.Duration { return d }
 	}
 	return retries, backoff
+}
+
+// rateLimitStreamRetries is the same-provider attempt cap for rate-limit
+// failures when the operator left the retry count at its default. A rate
+// limit clears by waiting, not by failing over to the same crowded profile,
+// so it earns one more attempt than the transport-default ladder.
+const rateLimitStreamRetries = 3
+
+// rateLimitBackoff is the wait before the next attempt after a rate limit:
+// exponential (2s, 4s, 8s...) capped at 30s, plus up to 25% jitter so several
+// workers backing off after the same 429 storm do not fire in lockstep. The
+// 500ms/1s default ladder was observed retrying straight into the same
+// window (zai code 1302) and burning the whole attempt budget without
+// clearing the limit. Exposed as a variable so tests can pin it.
+var rateLimitBackoff = func(attempt int) time.Duration {
+	d := min(2*time.Second*(1<<attempt), 30*time.Second)
+	return d + time.Duration(rand.Int64N(int64(d)/4)+1)
+}
+
+// isRateLimitError reports whether the provider rejected the call for pacing
+// (HTTP 429 / rate_limit): transient by nature, cleared by waiting.
+func isRateLimitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "429") ||
+		strings.Contains(s, "rate limit") ||
+		strings.Contains(s, "rate_limit")
+}
+
+// retryAttemptsFor returns the effective same-provider attempt cap for this
+// failure. Only the default budget is extended: an operator-configured count
+// (or an explicitly disabled layer) is respected as-is.
+func retryAttemptsFor(policyRetries int, err error) int {
+	if policyRetries == sameProviderStreamRetries && isRateLimitError(err) {
+		return rateLimitStreamRetries
+	}
+	return policyRetries
+}
+
+// backoffFor picks the wait before the next same-provider attempt.
+func backoffFor(err error, attempt int, backoffOf func(int) time.Duration) time.Duration {
+	if isRateLimitError(err) {
+		return rateLimitBackoff(attempt)
+	}
+	return backoffOf(attempt)
 }
 
 // isRetryableStreamError decides whether a "pre-commit stream failure" is worth replaying on the same provider.
