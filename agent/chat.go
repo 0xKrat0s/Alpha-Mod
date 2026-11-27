@@ -41,6 +41,10 @@ type ChatAgent struct {
 }
 
 func NewChatAgent(prov llm.Provider, model, workDir string, tx *transcript.Store, window int) *ChatAgent {
+	// Rate-limit parity with the task lane: chat-family runs (chat page,
+	// conversation agents, finding retests) had only the SDK's fast connect
+	// ladder, which a real 429 window outlasts. Replay paced here.
+	prov = NewRateLimitRetryProvider(prov)
 	return &ChatAgent{prov: prov, model: model, workDir: workDir, tx: tx, window: window}
 }
 
