@@ -32,7 +32,8 @@ export function AccountSwitcher({
   const [activeUser, setActiveUser] = useState(users[0]);
   const [pwOpen, setPwOpen] = useState(false);
 
-  function handleLogout() {
+  async function handleLogout() {
+    await auth.revoke();
     auth.clearToken();
     window.location.href = "/login";
   }

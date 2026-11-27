@@ -28,6 +28,23 @@ export const auth = {
     document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
   },
 
+  // revoke() invalidates every issued token server-side (all sessions, all
+  // devices) and lets the server expire its HttpOnly session cookie. Network
+  // errors must not block the caller's redirect to /login.
+  async revoke(): Promise<void> {
+    if (typeof window === "undefined") return;
+    const token = this.getToken();
+    try {
+      await fetch("/api/auth/revoke", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch {
+      // ignore: the redirect below is what the user wants
+    }
+    localStorage.removeItem(TOKEN_KEY);
+  },
+
   // Parse the current user from the JWT payload's sub field; display only, no signature verification.
   getCurrentUser(): CurrentUser | null {
     const token = this.getToken();
