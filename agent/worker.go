@@ -486,6 +486,23 @@ func renderWorkerGraphOverview(data map[string]any, env dataEnvelope) string {
 	// worker view. data is a fresh map dedicated to this worker, so deleting the key
 	// doesn't affect the planner.
 	delete(data, "coverage")
+	// Worker slimming (opt/context-slim): the worker needs the anti-repeat signal
+	// (recent facts/findings, running intents) and the totals, not the planner-scale
+	// frontier with full lineage or the folded cold history. Everything dropped here
+	// stays reachable on demand via graph_overview / node_detail / list_findings /
+	// list_facts, so a worker that genuinely needs the wider picture can still get
+	// it — one tool call instead of 30KB in every launch message.
+	delete(data, "open_intents") // frontier_open + done_intents_total counts remain
+	delete(data, "cold_digests")
+	capList := func(key string, n int) {
+		if v, ok := data[key].([]map[string]any); ok && len(v) > n {
+			data[key] = v[:n]
+		}
+	}
+	capList("goals", 15)
+	capList("hints", 15)
+	capList("recent_facts", 10)
+	capList("recent_done_intents", 6)
 	sections := renderOverviewSections(data, env)
 	if sections == "" {
 		return "" // fall back silently: the worker just won't have the global context
