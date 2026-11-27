@@ -89,17 +89,18 @@ func TestCookieStateChangeNeedsSameOrigin(t *testing.T) {
 		}
 	}
 
-	// The token in the query string is a credential the caller holds, like the
-	// bearer token; with the cookie also present the cookie is the one used.
+	// The query-string token fallback is gone (URL tokens leak into logs,
+	// history and Referer headers): a request authenticating only through the
+	// query is simply unauthorized now, foreign Origin or not.
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, csrfRequest("POST", "/api/mcp?token="+tok, "", map[string]string{"Origin": "https://evil.example"}))
-	if rec.Code != 204 {
-		t.Errorf("query token, foreign Origin: status=%d, want 204", rec.Code)
+	if rec.Code != 401 {
+		t.Errorf("query token, foreign Origin: status=%d, want 401 (query tokens are no longer credentials)", rec.Code)
 	}
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, csrfRequest("POST", "/api/mcp?token="+tok, "", map[string]string{"Cookie": tok, "Origin": "https://evil.example"}))
 	if rec.Code != 403 {
-		t.Errorf("query token and cookie, foreign Origin: status=%d, want 403", rec.Code)
+		t.Errorf("cookie session, foreign Origin: status=%d, want 403", rec.Code)
 	}
 
 	// Over TLS on a non-default port the origin is https://host:port.

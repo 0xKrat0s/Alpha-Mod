@@ -272,8 +272,10 @@ func (s *Server) approver(r *http.Request) string {
 	return jwtSubject(tok, s.jwtKey)
 }
 
-// extractToken reads the JWT from Authorization: Bearer header,
-// artex_token cookie, or ?token= query param (for SSE connections).
+// extractToken reads the JWT from Authorization: Bearer <token> or the
+// artex_token cookie. The former ?token= query-param fallback is gone: URL
+// tokens leak into access logs, browser history, Referer headers and proxies,
+// and SSE connections send the same-origin cookie on their own.
 func extractToken(r *http.Request) string {
 	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 		return strings.TrimPrefix(h, "Bearer ")
@@ -281,7 +283,37 @@ func extractToken(r *http.Request) string {
 	if c, err := r.Cookie("artex_token"); err == nil && c.Value != "" {
 		return c.Value
 	}
-	return r.URL.Query().Get("token")
+	return ""
+}
+
+// setSessionCookie issues the session as a hardened cookie: HttpOnly (no
+// script access), SameSite=Lax, and Secure whenever the request reached us
+// over TLS directly or through a trusted proxy. The 7-day max age matches the
+// JWT TTL. The console keeps a localStorage copy of the token only for
+// explicit Bearer use (API clients, non-browser agents).
+func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "artex_token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   7 * 24 * 3600,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   s.isHTTPS(r),
+	})
+}
+
+// clearSessionCookie expires the session cookie.
+func (s *Server) clearSessionCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "artex_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   s.isHTTPS(r),
+	})
 }
 
 // cookieAuthenticated reports whether extractToken takes the session from the
@@ -530,6 +562,7 @@ func (s *Server) authInit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]any{"token": tok})
+	s.setSessionCookie(w, r, tok)
 }
 
 // POST /api/auth/change-password — changes the admin password. Requires a valid
@@ -593,6 +626,9 @@ func (s *Server) authChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	s.passwordChangeReset(r)
 	s.applyPasswordVersion(version)
+	// The version bump already invalidates every issued token; expire the
+	// cookie so the browser stops sending one that can never validate.
+	s.clearSessionCookie(w, r)
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -676,4 +712,40 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, getSetting func(s
 		return
 	}
 	writeJSON(w, 200, map[string]any{"token": tok})
+	s.setSessionCookie(w, r, tok)
+}
+
+// POST /api/auth/revoke — rotates the password version, which invalidates
+// every issued token (all sessions, all devices), and expires the session
+// cookie. The route sits under the requireAuth-exempt /api/auth/* prefix, so
+// it authenticates itself: a valid token (bearer or cookie) is required, and
+// a cookie session must additionally be same-origin for this state-changing
+// call. The caller re-authenticates afterwards; there is no replacement
+// token, by design.
+func (s *Server) authRevoke(w http.ResponseWriter, r *http.Request) {
+	pg := s.pg(w)
+	if pg == nil {
+		return
+	}
+	tok := extractToken(r)
+	if tok == "" {
+		writeErr(w, 401, "Unauthorized")
+		return
+	}
+	if !s.sessionOK(tok) {
+		writeErr(w, 401, "token is invalid or expired")
+		return
+	}
+	if cookieAuthenticated(r) && !sameOrigin(r) {
+		writeErr(w, 403, "cross-origin request refused: a cookie session can revoke only from the console's own origin")
+		return
+	}
+	next := s.pwdVersion.Load() + 1
+	if err := pg.SetSetting(s.passwordVersionKey(), strconv.FormatInt(next, 10)); err != nil {
+		writeErr(w, 503, errDataSourceUnavailable)
+		return
+	}
+	s.applyPasswordVersion(next)
+	s.clearSessionCookie(w, r)
+	writeJSON(w, 200, map[string]any{"ok": true})
 }

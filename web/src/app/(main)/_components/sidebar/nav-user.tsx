@@ -32,7 +32,8 @@ export function NavUser({
   const { isMobile } = useSidebar();
   const [pwOpen, setPwOpen] = React.useState(false);
 
-  function handleLogout() {
+  async function handleLogout() {
+    await auth.revoke();
     auth.clearToken();
     // Hard navigation: let the browser start a fresh request with the cleared cookie,
     // so middleware reads the empty token correctly and lets /login through
