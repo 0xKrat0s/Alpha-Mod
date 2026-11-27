@@ -2,29 +2,25 @@
 
 <img src="web/public/logo.svg" width="84" alt="ARTEX logo" />
 
-# ARTEX
+# Alpha-Mod
 
-**Autonomous penetration testing that keeps its receipts.**
+**Autonomous penetration testing that keeps its receipts — an ARTEX fork.**
 
 
 Self-hosted multi-agent offensive security. A planner explores, workers run real tools,
 and every finding stays bound to the assets and HTTP traffic that prove it.
 
-[![Release](https://img.shields.io/github/v/release/BaaRai/ARTEX?label=release&color=6b34db)](https://github.com/BaaRai/ARTEX/releases)
-[![License](https://img.shields.io/github/license/BaaRai/ARTEX?color=6b34db)](LICENSE)
-[![CI](https://github.com/BaaRai/ARTEX/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/BaaRai/ARTEX/actions/workflows/ci.yml)
-[![Go](https://img.shields.io/github/go-mod/go-version/BaaRai/ARTEX?color=6b34db)](go.mod)
-[![Discord](https://img.shields.io/badge/Discord-join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/VKyvMTcgXh)
+[![License](https://img.shields.io/github/license/0xKrat0s/Alpha-Mod?color=6b34db)](LICENSE)
+[![CI](https://github.com/0xKrat0s/Alpha-Mod/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/0xKrat0s/Alpha-Mod/actions/workflows/ci.yml)
+[![Go](https://img.shields.io/github/go-mod/go-version/0xKrat0s/Alpha-Mod?color=6b34db)](go.mod)
 
 [Quick start](#quick-start) · [Screenshots](#screenshots) · [How it works](#how-it-works) · [Install](#installation) · [Configuration](#configuration) · [Security](SECURITY.md)
-
-[![Join us on Discord](https://img.shields.io/badge/JOIN%20US%20ON-DISCORD-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/VKyvMTcgXh)
 
 </div>
 
 ---
 
-ARTEX is a self-hosted, LLM-driven penetration testing platform. It is not a chat wrapper around
+Alpha-Mod is a self-hosted, LLM-driven penetration testing platform. It is not a chat wrapper around
 a scanner: a planner splits a goal into intents, workers execute them with real tools, and the
 results are written back into **two linked graphs**: one for what you know about the target, one
 for how the test is progressing. Every finding can carry the captured request and response that
@@ -46,7 +42,7 @@ justify it, and every autonomous action passes through scope rules, approval gat
 ## Quick start
 
 ```bash
-git clone https://github.com/BaaRai/ARTEX.git
+git clone https://github.com/0xKrat0s/Alpha-Mod.git
 cd ARTEX
 cp .env.example .env            # set POSTGRES_PASSWORD (and optionally an LLM key)
 docker compose up -d --build    # builds from this checkout, starts PostgreSQL
@@ -319,7 +315,7 @@ worker remains confined to the intent it claimed.
 ### Option 1: one-click install script (recommended)
 
 ```bash
-git clone https://github.com/BaaRai/ARTEX.git
+git clone https://github.com/0xKrat0s/Alpha-Mod.git
 cd ARTEX
 ./install.sh
 ```
@@ -340,7 +336,7 @@ first-run claim), or keep loopback and use a reverse proxy or SSH tunnel.
 Build from a checkout with Docker Compose:
 
 ```bash
-git clone https://github.com/BaaRai/ARTEX.git
+git clone https://github.com/0xKrat0s/Alpha-Mod.git
 cd ARTEX
 cp .env.example .env            # set POSTGRES_PASSWORD, optionally ANTHROPIC_API_KEY
 docker compose up -d --build
@@ -407,7 +403,7 @@ checkout build above until the next tagged release. Once the first image is publ
 the file and `.env.example` once:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/BaaRai/ARTEX/main/docker-compose.ghcr.yml
+curl -fsSLO https://raw.githubusercontent.com/0xKrat0s/Alpha-Mod/main/docker-compose.ghcr.yml
 curl -fsSLO https://raw.githubusercontent.com/BaaRai/ARTEX/main/.env.example
 cp .env.example .env            # set POSTGRES_PASSWORD, optionally an LLM key
 docker compose -f docker-compose.ghcr.yml pull
@@ -977,9 +973,17 @@ Operational security properties:
 
 ---
 
-## About this project
+## About this project & credits
 
-This repository is the actively maintained community continuation of ARTEX, originally by [Autumn-27](https://github.com/Autumn-27). It diverges from the original with its own features and fixes, tracked in [CHANGELOG.md](CHANGELOG.md), under the same AGPL-3.0 license. The original repository is no longer public, so the link points to the author profile.
+Alpha-Mod is a fork of [ARTEX](https://github.com/BaaRai/ARTEX) — the actively maintained
+community continuation of the original ARTEX by [Autumn-27](https://github.com/Autumn-27)
+(original repository no longer public; the link points to the author profile).
+
+**Full credit for the architecture and the overwhelming majority of this codebase goes to the
+ARTEX authors and community — [BaaRai](https://github.com/BaaRai) and contributors, on top of
+[Autumn-27](https://github.com/Autumn-27)'s original design.** Alpha-Mod's own changes are the
+optimization and hardening work tracked in [PLAN.md](PLAN.md) and [CHANGELOG.md](CHANGELOG.md),
+carried under the same AGPL-3.0 license. Please use and contribute to upstream ARTEX too.
 
 ---
 
